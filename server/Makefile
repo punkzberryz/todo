@@ -51,6 +51,6 @@ stop_containers:
 		echo "no containers running..."; \
 	fi
 mock:
-	mockgen -package mockdb -destination db/mock/store.go github.com/Papai-hospital/papai-server-go/db/sqlc Store
+	mockgen -package mockdb -destination db/mock/store.go github.com/punkzberryz/todo/db/sqlc Store
 git-pull:
 	git fetch && git pull

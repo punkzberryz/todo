@@ -46,6 +46,10 @@ func NewServer(config util.Config, store *db.Store) (*Server, error) {
 		r.Post("/", server.createUser)     //POST /user/
 		r.Post("/login", server.loginUser) //POST /user/login
 	})
+
+	//token
+	r.Post("/tokens/renew_access", server.renewAccessToken)
+
 	// user-route-protected
 	r.Route("/me", func(r chi.Router) {
 		r.Use(server.authMiddleware)

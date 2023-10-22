@@ -155,23 +155,44 @@ func (server *Server) loginUser(w http.ResponseWriter, r *http.Request) {
 		Email:    user.Email,
 		Username: user.Username,
 	}
-	token, payload, err := server.tokenMaker.CreateToken(userPayload, server.config.AccessTokenDuration)
+	token, accessPayload, err := server.tokenMaker.CreateToken(userPayload, server.config.AccessTokenDuration)
+	if err != nil {
+		render.Render(w, r, ErrInternalServer(err))
+		return
+	}
+	refreshToken, refreshPayload, err := server.tokenMaker.CreateToken(userPayload, server.config.RefreshTokenDuration)
 	if err != nil {
 		render.Render(w, r, ErrInternalServer(err))
 		return
 	}
 
+	session, err := server.store.CreateSession(r.Context(), db.CreateSessionParams{
+		ID:           refreshPayload.ID,
+		UserID:       refreshPayload.User.ID,
+		RefreshToken: refreshToken,
+		UserAgent:    r.UserAgent(),
+		ClientIp:     r.RemoteAddr,
+		IsBlocked:    false,
+		ExpiresAt:    refreshPayload.ExpiredAt,
+	})
+	if err != nil {
+		render.Render(w, r, ErrInternalServer(err))
+		return
+	}
 	userRsp := userResponse{
 		Username:          user.Username,
 		Email:             user.Email,
 		PasswordChangedAt: user.PasswordChangedAt,
 		CreatedAt:         user.CreatedAt,
 	}
+
 	rsp := loginOrRegisterUserResponse{
-		AccessToken:          token,
-		SessionID:            payload.ID,
-		AccessTokenExpiresAt: payload.ExpiredAt,
-		User:                 &userRsp,
+		SessionID:             session.ID,
+		AccessToken:           token,
+		AccessTokenExpiresAt:  accessPayload.ExpiredAt,
+		RefreshToken:          refreshToken,
+		RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
+		User:                  &userRsp,
 	}
 	if err := render.Render(w, r, &rsp); err != nil {
 		render.Render(w, r, ErrRender(err))

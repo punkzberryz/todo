@@ -6,11 +6,15 @@ package db
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type Querier interface {
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	GetTask(ctx context.Context, id int64) (Task, error)
 	GetTaskList(ctx context.Context, arg GetTaskListParams) ([]Task, error)
 	GetUser(ctx context.Context, arg GetUserParams) (User, error)

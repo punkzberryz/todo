@@ -24,11 +24,17 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createSessionStmt, err = db.PrepareContext(ctx, createSession); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateSession: %w", err)
+	}
 	if q.createTaskStmt, err = db.PrepareContext(ctx, createTask); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateTask: %w", err)
 	}
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
+	}
+	if q.getSessionStmt, err = db.PrepareContext(ctx, getSession); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSession: %w", err)
 	}
 	if q.getTaskStmt, err = db.PrepareContext(ctx, getTask); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTask: %w", err)
@@ -44,6 +50,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createSessionStmt != nil {
+		if cerr := q.createSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createSessionStmt: %w", cerr)
+		}
+	}
 	if q.createTaskStmt != nil {
 		if cerr := q.createTaskStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createTaskStmt: %w", cerr)
@@ -52,6 +63,11 @@ func (q *Queries) Close() error {
 	if q.createUserStmt != nil {
 		if cerr := q.createUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
+		}
+	}
+	if q.getSessionStmt != nil {
+		if cerr := q.getSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSessionStmt: %w", cerr)
 		}
 	}
 	if q.getTaskStmt != nil {
@@ -106,23 +122,27 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db              DBTX
-	tx              *sql.Tx
-	createTaskStmt  *sql.Stmt
-	createUserStmt  *sql.Stmt
-	getTaskStmt     *sql.Stmt
-	getTaskListStmt *sql.Stmt
-	getUserStmt     *sql.Stmt
+	db                DBTX
+	tx                *sql.Tx
+	createSessionStmt *sql.Stmt
+	createTaskStmt    *sql.Stmt
+	createUserStmt    *sql.Stmt
+	getSessionStmt    *sql.Stmt
+	getTaskStmt       *sql.Stmt
+	getTaskListStmt   *sql.Stmt
+	getUserStmt       *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:              tx,
-		tx:              tx,
-		createTaskStmt:  q.createTaskStmt,
-		createUserStmt:  q.createUserStmt,
-		getTaskStmt:     q.getTaskStmt,
-		getTaskListStmt: q.getTaskListStmt,
-		getUserStmt:     q.getUserStmt,
+		db:                tx,
+		tx:                tx,
+		createSessionStmt: q.createSessionStmt,
+		createTaskStmt:    q.createTaskStmt,
+		createUserStmt:    q.createUserStmt,
+		getSessionStmt:    q.getSessionStmt,
+		getTaskStmt:       q.getTaskStmt,
+		getTaskListStmt:   q.getTaskListStmt,
+		getUserStmt:       q.getUserStmt,
 	}
 }

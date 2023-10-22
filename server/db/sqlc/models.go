@@ -6,7 +6,20 @@ package db
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
+
+type Session struct {
+	ID           uuid.UUID `json:"id"`
+	UserID       int64     `json:"userId"`
+	RefreshToken string    `json:"refreshToken"`
+	UserAgent    string    `json:"userAgent"`
+	ClientIp     string    `json:"clientIp"`
+	IsBlocked    bool      `json:"isBlocked"`
+	ExpiresAt    time.Time `json:"expiresAt"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
 
 type Task struct {
 	ID        int64     `json:"id"`
