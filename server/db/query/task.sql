@@ -21,11 +21,11 @@ OFFSET $3;
 -- name: UpdateTask :one
 UPDATE tasks
 SET 
-    body = $2,
-    is_done = $3
-WHERE id = $1
+    body = $3,
+    is_done = $4
+WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
 -- name: DeleteTask :exec
 DELETE FROM tasks
-WHERE id = $1;
+WHERE id = $1 AND owner_id = $2;

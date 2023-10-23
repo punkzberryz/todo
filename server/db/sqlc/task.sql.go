@@ -38,11 +38,16 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 
 const deleteTask = `-- name: DeleteTask :exec
 DELETE FROM tasks
-WHERE id = $1
+WHERE id = $1 AND owner_id = $2
 `
 
-func (q *Queries) DeleteTask(ctx context.Context, id int64) error {
-	_, err := q.exec(ctx, q.deleteTaskStmt, deleteTask, id)
+type DeleteTaskParams struct {
+	ID      int64 `json:"id"`
+	OwnerID int64 `json:"ownerId"`
+}
+
+func (q *Queries) DeleteTask(ctx context.Context, arg DeleteTaskParams) error {
+	_, err := q.exec(ctx, q.deleteTaskStmt, deleteTask, arg.ID, arg.OwnerID)
 	return err
 }
 
@@ -111,20 +116,26 @@ func (q *Queries) GetTaskList(ctx context.Context, arg GetTaskListParams) ([]Tas
 const updateTask = `-- name: UpdateTask :one
 UPDATE tasks
 SET 
-    body = $2,
-    is_done = $3
-WHERE id = $1
+    body = $3,
+    is_done = $4
+WHERE id = $1 AND owner_id = $2
 RETURNING id, body, is_done, owner_id, created_at
 `
 
 type UpdateTaskParams struct {
-	ID     int64  `json:"id"`
-	Body   string `json:"body"`
-	IsDone bool   `json:"isDone"`
+	ID      int64  `json:"id"`
+	OwnerID int64  `json:"ownerId"`
+	Body    string `json:"body"`
+	IsDone  bool   `json:"isDone"`
 }
 
 func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error) {
-	row := q.queryRow(ctx, q.updateTaskStmt, updateTask, arg.ID, arg.Body, arg.IsDone)
+	row := q.queryRow(ctx, q.updateTaskStmt, updateTask,
+		arg.ID,
+		arg.OwnerID,
+		arg.Body,
+		arg.IsDone,
+	)
 	var i Task
 	err := row.Scan(
 		&i.ID,

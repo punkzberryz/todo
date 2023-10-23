@@ -40,9 +40,17 @@ func (server *Server) getTask(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, ErrInvalidRequest(err))
 		return
 	}
+	payload := r.Context().Value(payloadKey).(*token.Payload)
 	task, err := server.store.GetTask(r.Context(), int64(id))
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	//check if task belongs to user
+	if task.OwnerID != payload.User.ID {
+		err := fmt.Errorf("ownwer id does not match user id")
+		render.Render(w, r, ErrUnauthorized(err))
 		return
 	}
 
@@ -51,7 +59,6 @@ func (server *Server) getTask(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		render.Render(w, r, ErrRender(err))
 	}
-
 }
 
 type TaskListResponse struct {
@@ -150,16 +157,16 @@ func (server *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 	//check if task belongs to User
 	payload := r.Context().Value(payloadKey).(*token.Payload)
-	task, err := server.store.GetTask(r.Context(), int64(id))
-	if err != nil {
-		render.Render(w, r, ErrInvalidRequest(err))
-		return
-	}
-	if task.OwnerID != payload.User.ID {
-		err := fmt.Errorf("ownwer id does not match user id")
-		render.Render(w, r, ErrUnauthorized(err))
-		return
-	}
+	// task, err := server.store.GetTask(r.Context(), int64(id))
+	// if err != nil {
+	// 	render.Render(w, r, ErrInvalidRequest(err))
+	// 	return
+	// }
+	// if task.OwnerID != payload.User.ID {
+	// 	err := fmt.Errorf("ownwer id does not match user id")
+	// 	render.Render(w, r, ErrUnauthorized(err))
+	// 	return
+	// }
 
 	data := &UpdateTaskRequest{}
 	if err := render.Bind(r, data); err != nil {
@@ -167,16 +174,56 @@ func (server *Server) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	arg := db.UpdateTaskParams{
-		ID:     task.ID,
-		Body:   data.Body,
-		IsDone: data.IsDone,
+		ID:      int64(id),
+		Body:    data.Body,
+		IsDone:  data.IsDone,
+		OwnerID: payload.User.ID,
 	}
-	task, err = server.store.UpdateTask(r.Context(), arg)
+	task, err := server.store.UpdateTask(r.Context(), arg)
 	if err != nil {
 		render.Render(w, r, ErrInternalServer(err))
 		return
 	}
 	if err := render.Render(w, r, &TaskResponse{Task: &task}); err != nil {
+		render.Render(w, r, ErrRender(err))
+	}
+}
+
+// Delete task
+// We improve response time by quering both
+// taskId and userId,
+// downside is that the response always return success
+// even if taskId doesn't exist nor matching the userId
+// (but the task won't be deleted if ownerId!=userId)
+type deleteTaskResponse struct {
+	Message string `json:"message"`
+}
+
+func (*deleteTaskResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+func (server *Server) deleteTask(w http.ResponseWriter, r *http.Request) {
+	id, err := getTaskIdFromURLPath(r)
+	if err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+	payload := r.Context().Value(payloadKey).(*token.Payload)
+	arg := db.DeleteTaskParams{
+		ID:      int64(id),
+		OwnerID: payload.User.ID,
+	}
+	err = server.store.DeleteTask(r.Context(), arg)
+	if err != nil {
+		render.Render(w, r, ErrInternalServer(err))
+		return
+	}
+
+	rsp := &deleteTaskResponse{
+		Message: fmt.Sprintf("delete task id %d success", id),
+	}
+
+	if err := render.Render(w, r, rsp); err != nil {
 		render.Render(w, r, ErrRender(err))
 	}
 }
