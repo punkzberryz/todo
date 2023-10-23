@@ -8,6 +8,7 @@ import (
 )
 
 type EnvVar struct {
+	MigrationURL         string        `mapstructure:"MIGRATION_URL"`
 	DbName               string        `mapstructure:"DB_NAME"`
 	DbUser               string        `mapstructure:"DB_USER"`
 	DbPassword           string        `mapstructure:"DB_PASSWORD"`
@@ -20,6 +21,7 @@ type EnvVar struct {
 	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
 }
 type Config struct {
+	MigrationURL         string
 	DBDriver             string
 	DBSource             string
 	ServerAddress        string
@@ -51,7 +53,7 @@ func LoadConfig(path string) (Config, error) {
 	if err != nil {
 		return config, err
 	}
-
+	config.MigrationURL = env.MigrationURL
 	config.DBDriver = "postgres" //hard-coded driver as postgres
 	config.DBSource = fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", env.DbUser, env.DbPassword, env.DbHost, env.DbPort, env.DbName)
 	config.ServerAddress = fmt.Sprintf("%s:%s", env.ServerHost, env.ServerPort)

@@ -38,7 +38,7 @@ func NewServer(config util.Config, store *db.Store) (*Server, error) {
 	r.Use(middleware.Recoverer)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
+		w.Write([]byte("welcome v2"))
 	})
 
 	//user-route
