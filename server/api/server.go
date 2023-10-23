@@ -58,10 +58,12 @@ func NewServer(config util.Config, store *db.Store) (*Server, error) {
 	})
 	//task-route
 	r.Route("/task", func(r chi.Router) {
-		r.Use(server.authMiddleware)       //require Header {Authorization: Bearer token}
-		r.Get("/{taskID}", server.getTask) //GET /task/123
-		r.Post("/", server.createTask)     //POST /task/123
-		r.Get("/", server.getTaskList)     //GET /task/
+		r.Use(server.authMiddleware)          //require Header {Authorization: Bearer token}
+		r.Get("/{taskID}", server.getTask)    //GET /task/123
+		r.Post("/", server.createTask)        //POST /task/123
+		r.Get("/", server.getTaskList)        //GET /task/
+		r.Put("/{taskID}", server.updateTask) //PUT /task/123 - edit task
+		//DELETE /task/123 - delete dask
 	})
 
 	server.Router = r

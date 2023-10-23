@@ -36,6 +36,16 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 	return i, err
 }
 
+const deleteTask = `-- name: DeleteTask :exec
+DELETE FROM tasks
+WHERE id = $1
+`
+
+func (q *Queries) DeleteTask(ctx context.Context, id int64) error {
+	_, err := q.exec(ctx, q.deleteTaskStmt, deleteTask, id)
+	return err
+}
+
 const getTask = `-- name: GetTask :one
 SELECT id, body, is_done, owner_id, created_at FROM tasks
 WHERE id = $1 LIMIT 1
@@ -96,4 +106,32 @@ func (q *Queries) GetTaskList(ctx context.Context, arg GetTaskListParams) ([]Tas
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateTask = `-- name: UpdateTask :one
+UPDATE tasks
+SET 
+    body = $2,
+    is_done = $3
+WHERE id = $1
+RETURNING id, body, is_done, owner_id, created_at
+`
+
+type UpdateTaskParams struct {
+	ID     int64  `json:"id"`
+	Body   string `json:"body"`
+	IsDone bool   `json:"isDone"`
+}
+
+func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error) {
+	row := q.queryRow(ctx, q.updateTaskStmt, updateTask, arg.ID, arg.Body, arg.IsDone)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.Body,
+		&i.IsDone,
+		&i.OwnerID,
+		&i.CreatedAt,
+	)
+	return i, err
 }

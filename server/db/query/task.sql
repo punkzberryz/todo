@@ -17,3 +17,15 @@ WHERE
 ORDER BY id
 LIMIT $2
 OFFSET $3;
+
+-- name: UpdateTask :one
+UPDATE tasks
+SET 
+    body = $2,
+    is_done = $3
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteTask :exec
+DELETE FROM tasks
+WHERE id = $1;

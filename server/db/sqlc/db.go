@@ -36,6 +36,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteSessionStmt, err = db.PrepareContext(ctx, deleteSession); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteSession: %w", err)
 	}
+	if q.deleteTaskStmt, err = db.PrepareContext(ctx, deleteTask); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTask: %w", err)
+	}
 	if q.getSessionStmt, err = db.PrepareContext(ctx, getSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetSession: %w", err)
 	}
@@ -47,6 +50,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getUserStmt, err = db.PrepareContext(ctx, getUser); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUser: %w", err)
+	}
+	if q.updateTaskStmt, err = db.PrepareContext(ctx, updateTask); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateTask: %w", err)
 	}
 	return &q, nil
 }
@@ -73,6 +79,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteSessionStmt: %w", cerr)
 		}
 	}
+	if q.deleteTaskStmt != nil {
+		if cerr := q.deleteTaskStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTaskStmt: %w", cerr)
+		}
+	}
 	if q.getSessionStmt != nil {
 		if cerr := q.getSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getSessionStmt: %w", cerr)
@@ -91,6 +102,11 @@ func (q *Queries) Close() error {
 	if q.getUserStmt != nil {
 		if cerr := q.getUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getUserStmt: %w", cerr)
+		}
+	}
+	if q.updateTaskStmt != nil {
+		if cerr := q.updateTaskStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateTaskStmt: %w", cerr)
 		}
 	}
 	return err
@@ -136,10 +152,12 @@ type Queries struct {
 	createTaskStmt    *sql.Stmt
 	createUserStmt    *sql.Stmt
 	deleteSessionStmt *sql.Stmt
+	deleteTaskStmt    *sql.Stmt
 	getSessionStmt    *sql.Stmt
 	getTaskStmt       *sql.Stmt
 	getTaskListStmt   *sql.Stmt
 	getUserStmt       *sql.Stmt
+	updateTaskStmt    *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -150,9 +168,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createTaskStmt:    q.createTaskStmt,
 		createUserStmt:    q.createUserStmt,
 		deleteSessionStmt: q.deleteSessionStmt,
+		deleteTaskStmt:    q.deleteTaskStmt,
 		getSessionStmt:    q.getSessionStmt,
 		getTaskStmt:       q.getTaskStmt,
 		getTaskListStmt:   q.getTaskListStmt,
 		getUserStmt:       q.getUserStmt,
+		updateTaskStmt:    q.updateTaskStmt,
 	}
 }
