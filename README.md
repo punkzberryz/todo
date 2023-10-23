@@ -2,6 +2,20 @@
 
 Todo list with Go
 
+### deploy
+
+- Create the todo-network
+  If network hasn't been existed
+
+  ```bash
+  make network
+  ```
+
+- Compoase docker up with re-build
+  ```bash
+  make docker-up-rebuild
+  ```
+
 ### Setup infrastructure
 
 - Create the todo-network
