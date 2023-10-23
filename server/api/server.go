@@ -43,8 +43,9 @@ func NewServer(config util.Config, store *db.Store) (*Server, error) {
 
 	//user-route
 	r.Route("/user", func(r chi.Router) {
-		r.Post("/", server.createUser)     //POST /user/
-		r.Post("/login", server.loginUser) //POST /user/login
+		r.Post("/", server.createUser)               //POST /user/
+		r.Post("/login", server.loginUser)           //POST /user/login
+		r.Post("/logout", server.removeTokenSession) //POST /user/logout
 	})
 
 	//token

@@ -7,11 +7,31 @@ import (
 	"time"
 
 	"github.com/go-chi/render"
-	"github.com/google/uuid"
+	"github.com/lib/pq"
 	db "github.com/punkzberryz/todo/db/sqlc"
 	"github.com/punkzberryz/todo/token"
 	"github.com/punkzberryz/todo/util"
 )
+
+type loginOrCreateUserResponse struct {
+	User  *userResponse     `json:"user"`
+	Token *newTokenResponse `json:"token"`
+}
+
+func (*loginOrCreateUserResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
+type userResponse struct {
+	Username          string    `json:"username"`
+	Email             string    `json:"email"`
+	PasswordChangedAt time.Time `json:"password_changed_at"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
+func (*userResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
 
 // For create new user request
 type createUserRequest struct {
@@ -31,30 +51,6 @@ func (c *createUserRequest) Bind(r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("email is invalid")
 	}
-	return nil
-}
-
-type userResponse struct {
-	Username          string    `json:"username"`
-	Email             string    `json:"email"`
-	PasswordChangedAt time.Time `json:"password_changed_at"`
-	CreatedAt         time.Time `json:"created_at"`
-}
-
-func (*userResponse) Render(w http.ResponseWriter, r *http.Request) error {
-	return nil
-}
-
-type loginOrRegisterUserResponse struct {
-	SessionID             uuid.UUID     `json:"session_id"`
-	AccessToken           string        `json:"access_token"`
-	AccessTokenExpiresAt  time.Time     `json:"access_token_expires_at"`
-	RefreshToken          string        `json:"refresh_token"`
-	RefreshTokenExpiresAt time.Time     `json:"refresh_token_expires_at"`
-	User                  *userResponse `json:"user"`
-}
-
-func (*loginOrRegisterUserResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
@@ -78,33 +74,36 @@ func (server *Server) createUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.store.CreateUser(r.Context(), arg)
 	if err != nil {
-		render.Render(w, r, ErrInternalServer(err))
-		return
-	}
-	userPayload := token.User{
-		ID:       user.ID,
-		Email:    user.Email,
-		Username: user.Username,
-	}
-	token, payload, err := server.tokenMaker.CreateToken(userPayload, server.config.AccessTokenDuration)
-	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "unique_violation":
+				newErr := fmt.Errorf("email has been used")
+				render.Render(w, r, ErrInvalidRequest(newErr))
+				return
+			}
+		}
 		render.Render(w, r, ErrInternalServer(err))
 		return
 	}
 
-	userRsp := userResponse{
+	tokenRsp, err := server.createNewAccessToken(&user, r)
+	if err != nil {
+		render.Render(w, r, ErrInternalServer(err))
+	}
+
+	usrRsp := &userResponse{
 		Username:          user.Username,
 		Email:             user.Email,
 		PasswordChangedAt: user.PasswordChangedAt,
 		CreatedAt:         user.CreatedAt,
 	}
-	rsp := loginOrRegisterUserResponse{
-		AccessToken:          token,
-		SessionID:            payload.ID,
-		AccessTokenExpiresAt: payload.ExpiredAt,
-		User:                 &userRsp,
+
+	rsp := &loginOrCreateUserResponse{
+		User:  usrRsp,
+		Token: tokenRsp,
 	}
-	if err := render.Render(w, r, &rsp); err != nil {
+
+	if err := render.Render(w, r, rsp); err != nil {
 		render.Render(w, r, ErrRender(err))
 	}
 }
@@ -150,56 +149,31 @@ func (server *Server) loginUser(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("email or password is incorrect")))
 		return
 	}
-	userPayload := token.User{
-		ID:       user.ID,
-		Email:    user.Email,
-		Username: user.Username,
-	}
-	token, accessPayload, err := server.tokenMaker.CreateToken(userPayload, server.config.AccessTokenDuration)
-	if err != nil {
-		render.Render(w, r, ErrInternalServer(err))
-		return
-	}
-	refreshToken, refreshPayload, err := server.tokenMaker.CreateToken(userPayload, server.config.RefreshTokenDuration)
+
+	tokenRsp, err := server.createNewAccessToken(&user, r)
 	if err != nil {
 		render.Render(w, r, ErrInternalServer(err))
 		return
 	}
 
-	session, err := server.store.CreateSession(r.Context(), db.CreateSessionParams{
-		ID:           refreshPayload.ID,
-		UserID:       refreshPayload.User.ID,
-		RefreshToken: refreshToken,
-		UserAgent:    r.UserAgent(),
-		ClientIp:     r.RemoteAddr,
-		IsBlocked:    false,
-		ExpiresAt:    refreshPayload.ExpiredAt,
-	})
-	if err != nil {
-		render.Render(w, r, ErrInternalServer(err))
-		return
-	}
-	userRsp := userResponse{
+	usrRsp := &userResponse{
 		Username:          user.Username,
 		Email:             user.Email,
 		PasswordChangedAt: user.PasswordChangedAt,
 		CreatedAt:         user.CreatedAt,
 	}
 
-	rsp := loginOrRegisterUserResponse{
-		SessionID:             session.ID,
-		AccessToken:           token,
-		AccessTokenExpiresAt:  accessPayload.ExpiredAt,
-		RefreshToken:          refreshToken,
-		RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
-		User:                  &userRsp,
+	rsp := &loginOrCreateUserResponse{
+		User:  usrRsp,
+		Token: tokenRsp,
 	}
-	if err := render.Render(w, r, &rsp); err != nil {
+
+	if err := render.Render(w, r, rsp); err != nil {
 		render.Render(w, r, ErrRender(err))
 	}
 }
 
-// get current user from JWT
+// get current user by decoding JWT
 func (server *Server) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 	payload := r.Context().Value(payloadKey).(*token.Payload)
 	arg := db.GetUserParams{
