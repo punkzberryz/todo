@@ -34,7 +34,7 @@ func (server *Server) authMiddleware(next http.Handler) http.Handler {
 			}
 
 			accessToken := fields[1]
-			payload, err := server.tokenMaker.VerifyToken(accessToken)
+			payload, err := server.token.Maker.VerifyToken(accessToken)
 			if err != nil {
 				render.Render(w, r, ErrUnauthorized(err))
 				return

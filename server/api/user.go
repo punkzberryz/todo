@@ -7,15 +7,14 @@ import (
 	"time"
 
 	"github.com/go-chi/render"
-	"github.com/lib/pq"
 	db "github.com/punkzberryz/todo/db/sqlc"
-	"github.com/punkzberryz/todo/token"
-	"github.com/punkzberryz/todo/util"
+	"github.com/punkzberryz/todo/service/auth"
+	"github.com/punkzberryz/todo/service/token"
 )
 
 type loginOrCreateUserResponse struct {
-	User  *userResponse     `json:"user"`
-	Token *newTokenResponse `json:"token"`
+	User  *userResponse           `json:"user"`
+	Token *token.NewTokenResponse `json:"token"`
 }
 
 func (*loginOrCreateUserResponse) Render(w http.ResponseWriter, r *http.Request) error {
@@ -60,47 +59,43 @@ func (server *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, ErrRender(err))
 		return
 	}
-	hashedPassword, err := util.HashPassword(data.Password)
-	if err != nil {
-		render.Render(w, r, ErrInternalServer(err))
-		return
-	}
 
-	arg := db.CreateUserParams{
-		Username:       data.Username,
-		HashedPassword: hashedPassword,
-		Email:          data.Email,
-	}
+	user, err := server.auth.CreateUser(r.Context(), &auth.CreateUserParams{
+		Email:    data.Email,
+		Username: data.Username,
+		Password: data.Password,
+	})
 
-	user, err := server.store.CreateUser(r.Context(), arg)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
-			switch pqErr.Code.Name() {
-			case "unique_violation":
-				newErr := fmt.Errorf("email has been used")
-				render.Render(w, r, ErrInvalidRequest(newErr))
-				return
-			}
+		if err == auth.ErrEmailInUsed {
+			render.Render(w, r, ErrInvalidRequest(err))
+			return
 		}
 		render.Render(w, r, ErrInternalServer(err))
 		return
 	}
 
-	tokenRsp, err := server.createNewAccessToken(&user, r)
+	tokenRsp, err := server.token.CreateNewAccessToken(r.Context(), token.CreateTokenParams{
+		User: token.User{
+			ID:       user.ID,
+			Email:    user.Email,
+			Username: user.Username,
+		},
+		UserAgent: r.UserAgent(),
+		ClientIp:  r.RemoteAddr,
+	})
 	if err != nil {
 		render.Render(w, r, ErrInternalServer(err))
 	}
 
-	usrRsp := &userResponse{
-		Username:          user.Username,
-		Email:             user.Email,
-		PasswordChangedAt: user.PasswordChangedAt,
-		CreatedAt:         user.CreatedAt,
-	}
-
 	rsp := &loginOrCreateUserResponse{
-		User:  usrRsp,
 		Token: tokenRsp,
+		User: &userResponse{
+			Username:          user.Username,
+			Email:             user.Email,
+			PasswordChangedAt: user.PasswordChangedAt,
+			CreatedAt:         user.CreatedAt,
+		},
 	}
 
 	if err := render.Render(w, r, rsp); err != nil {
@@ -138,34 +133,36 @@ func (server *Server) loginUser(w http.ResponseWriter, r *http.Request) {
 	arg := db.GetUserParams{
 		Email: data.Email,
 	}
-	user, err := server.store.GetUser(r.Context(), arg)
+	user, err := server.auth.GetUserFromLogin(r.Context(), auth.GetUserFromLogin{
+		GetUserParams: arg,
+		Password:      data.Password,
+	})
 	if err != nil {
 		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("email or password is incorrect")))
 		return
 	}
 
-	err = util.ComparePassword(data.Password, user.HashedPassword)
-	if err != nil {
-		render.Render(w, r, ErrInvalidRequest(fmt.Errorf("email or password is incorrect")))
-		return
-	}
-
-	tokenRsp, err := server.createNewAccessToken(&user, r)
+	tokenRsp, err := server.token.CreateNewAccessToken(r.Context(), token.CreateTokenParams{
+		User: token.User{
+			ID:       user.ID,
+			Email:    user.Email,
+			Username: user.Username,
+		},
+		UserAgent: r.UserAgent(),
+		ClientIp:  r.RemoteAddr,
+	})
 	if err != nil {
 		render.Render(w, r, ErrInternalServer(err))
-		return
-	}
-
-	usrRsp := &userResponse{
-		Username:          user.Username,
-		Email:             user.Email,
-		PasswordChangedAt: user.PasswordChangedAt,
-		CreatedAt:         user.CreatedAt,
 	}
 
 	rsp := &loginOrCreateUserResponse{
-		User:  usrRsp,
 		Token: tokenRsp,
+		User: &userResponse{
+			Username:          user.Username,
+			Email:             user.Email,
+			PasswordChangedAt: user.PasswordChangedAt,
+			CreatedAt:         user.CreatedAt,
+		},
 	}
 
 	if err := render.Render(w, r, rsp); err != nil {
@@ -176,10 +173,11 @@ func (server *Server) loginUser(w http.ResponseWriter, r *http.Request) {
 // get current user by decoding JWT
 func (server *Server) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 	payload := r.Context().Value(payloadKey).(*token.Payload)
-	arg := db.GetUserParams{
-		ID: payload.User.ID,
-	}
-	user, err := server.store.GetUser(r.Context(), arg)
+
+	user, err := server.auth.GetUserFromToken(r.Context(),
+		db.GetUserParams{
+			ID: payload.User.ID,
+		})
 	if err != nil {
 		render.Render(w, r, ErrInternalServer(err))
 		return

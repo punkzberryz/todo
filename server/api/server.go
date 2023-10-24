@@ -7,15 +7,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	db "github.com/punkzberryz/todo/db/sqlc"
-	"github.com/punkzberryz/todo/token"
+	"github.com/punkzberryz/todo/service/auth"
+	"github.com/punkzberryz/todo/service/task"
+	"github.com/punkzberryz/todo/service/token"
 	"github.com/punkzberryz/todo/util"
 )
 
 type Server struct {
-	config     util.Config
-	store      db.Store
-	tokenMaker token.Maker
-	Router     *chi.Mux
+	config util.Config
+	Router *chi.Mux
+	auth   auth.Auth
+	task   task.Task
+	token  token.Token
 }
 
 // Create new HTTP server and setup routing
@@ -25,10 +28,24 @@ func NewServer(config util.Config, store *db.Store) (*Server, error) {
 		return nil, fmt.Errorf("cannot create token maker: %v", err)
 	}
 
+	token := token.Token{
+		Store:                *store,
+		Maker:                tokenMaker,
+		RefreshTokenDuration: config.RefreshTokenDuration,
+		AccessTokenDuration:  config.AccessTokenDuration,
+	}
+	auth := auth.Auth{
+		Store: *store,
+	}
+	task := task.Task{
+		Store: *store,
+	}
+
 	server := &Server{
-		config:     config,
-		store:      *store,
-		tokenMaker: tokenMaker,
+		config: config,
+		auth:   auth,
+		task:   task,
+		token:  token,
 	}
 
 	r := chi.NewRouter()
