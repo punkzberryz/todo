@@ -1,6 +1,12 @@
 # todo
 
-Todo list with Go
+Todo list written in Go.
+
+Auth Service via Paseto (can also switch to jwt) with RefreshToken Session storing in Redis server.
+
+Todo list data stored in Postgres Server.
+
+Next step is to implement Client with React
 
 ### deploy
 
