@@ -64,7 +64,7 @@ mock:
 	mockgen -package mockdb -destination db/mock/store.go github.com/punkzberryz/todo/db/sqlc Store
 
 redis:
-	docker run --name redis -p 6379:6379 -d redis:7-alpine
+	docker run --name redis -p ${REDIS_PORT}:${REDIS_PORT} -d redis:7-alpine
 
 stop_containers:
 	@echo "Stopping other docker container"

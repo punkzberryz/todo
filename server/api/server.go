@@ -10,6 +10,7 @@ import (
 	"github.com/punkzberryz/todo/service/auth"
 	"github.com/punkzberryz/todo/service/task"
 	"github.com/punkzberryz/todo/service/token"
+	"github.com/punkzberryz/todo/session"
 	"github.com/punkzberryz/todo/util"
 )
 
@@ -22,14 +23,14 @@ type Server struct {
 }
 
 // Create new HTTP server and setup routing
-func NewServer(config util.Config, store *db.Store) (*Server, error) {
+func NewServer(config util.Config, store *db.Store, session *session.Store) (*Server, error) {
 	tokenMaker, err := token.NewPasetoMaker(config.TokenSymmetricKey)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create token maker: %v", err)
 	}
 
 	token := token.Token{
-		Store:                *store,
+		Session:              *session,
 		Maker:                tokenMaker,
 		RefreshTokenDuration: config.RefreshTokenDuration,
 		AccessTokenDuration:  config.AccessTokenDuration,

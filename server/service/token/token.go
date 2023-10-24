@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	db "github.com/punkzberryz/todo/db/sqlc"
+	"github.com/punkzberryz/todo/session"
 )
 
 var (
@@ -17,10 +17,10 @@ var (
 )
 
 type Token struct {
-	Store db.Store
 	Maker
 	RefreshTokenDuration time.Duration
 	AccessTokenDuration  time.Duration
+	Session              session.Store
 }
 
 // Create new AccessToken & RefreshToken
@@ -48,8 +48,7 @@ func (t Token) CreateNewAccessToken(ctx context.Context, arg CreateTokenParams) 
 	if err != nil {
 		return nil, err
 	}
-
-	session, err := t.Store.CreateSession(ctx, db.CreateSessionParams{
+	session, err := t.Session.CreateTokenSession(ctx, session.CreateTokenSessionParams{
 		ID:           refreshPayload.ID,
 		UserID:       refreshPayload.User.ID,
 		RefreshToken: refreshToken,
@@ -58,6 +57,7 @@ func (t Token) CreateNewAccessToken(ctx context.Context, arg CreateTokenParams) 
 		IsBlocked:    false,
 		ExpiresAt:    refreshPayload.ExpiredAt,
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,9 @@ func (t Token) RenewAccessToken(ctx context.Context, refreshToken string) (*Rene
 	if err != nil {
 		return nil, err
 	}
-	session, err := t.Store.GetSession(ctx, refreshPayload.ID)
+
+	session, err := t.Session.GetTokenSession(ctx, refreshPayload.ID)
+
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +119,6 @@ func (t Token) DeleteTokenSession(ctx context.Context, refreshToken string) erro
 	if err != nil {
 		return err
 	}
-	err = t.Store.DeleteSession(ctx, refreshPayload.ID)
+	err = t.Session.DeleteTokenSession(ctx, refreshPayload.ID)
 	return err
 }

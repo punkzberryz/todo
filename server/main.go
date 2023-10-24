@@ -12,6 +12,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/punkzberryz/todo/api"
 	db "github.com/punkzberryz/todo/db/sqlc"
+	"github.com/punkzberryz/todo/session"
 	"github.com/punkzberryz/todo/util"
 )
 
@@ -21,15 +22,20 @@ func main() {
 		log.Fatal("cannot load config:", err)
 	}
 
-	conn, err := sql.Open(config.DBDriver, config.DBSource)
+	dbConn, err := sql.Open(config.DBDriver, config.DBSource)
 	if err != nil {
 		log.Fatal("cannot connect to db:", err)
 	}
 
 	runDBMigration(config.MigrationURL, config.DBSource)
 
-	store := db.NewStore(conn)
-	server, err := api.NewServer(config, &store)
+	store := db.NewStore(dbConn)
+	sessionConn, err := session.NewSession(config.RedisAddress)
+	if err != nil {
+		log.Fatal("cannot connect to redis client:", err)
+	}
+
+	server, err := api.NewServer(config, &store, &sessionConn)
 	if err != nil {
 		log.Fatal("cannot create server:", err)
 	}

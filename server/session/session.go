@@ -1,14 +1,27 @@
 package session
 
 import (
-	"github.com/go-redis/redis/v8"
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
-func NewSession(address string) *redis.Client {
+type Store interface {
+	CreateTokenSession(ctx context.Context, arg CreateTokenSessionParams) (*TokenSession, error)
+	GetTokenSession(ctx context.Context, sessionId uuid.UUID) (*TokenSession, error)
+	DeleteTokenSession(ctx context.Context, sessionId uuid.UUID) error
+}
+
+func NewSession(address string) (Store, error) {
+
 	client := redis.NewClient(&redis.Options{
 		Addr:     address,
 		Password: "",
 		DB:       0,
 	})
-	return client
+	err := client.Ping(context.Background())
+	return &Queries{
+		db: *client,
+	}, err.Err()
 }

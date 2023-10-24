@@ -19,6 +19,8 @@ type EnvVar struct {
 	TokenSymmetricKey    string        `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
 	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
+	RedisHost            string        `mapstructure:"REDIS_HOST"`
+	RedisPort            string        `mapstructure:"REDIS_PORT"`
 }
 type Config struct {
 	MigrationURL         string
@@ -29,6 +31,7 @@ type Config struct {
 	TokenSymmetricKey    string
 	AccessTokenDuration  time.Duration
 	RefreshTokenDuration time.Duration
+	RedisAddress         string
 }
 
 func getEnvVar(path string) (env EnvVar, err error) {
@@ -61,5 +64,6 @@ func LoadConfig(path string) (Config, error) {
 	config.TokenSymmetricKey = env.TokenSymmetricKey
 	config.AccessTokenDuration = env.AccessTokenDuration
 	config.RefreshTokenDuration = env.RefreshTokenDuration
+	config.RedisAddress = fmt.Sprintf("%s:%s", env.RedisHost, env.RedisPort)
 	return config, nil
 }
