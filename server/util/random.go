@@ -18,6 +18,7 @@ func RandomBool() bool {
 }
 
 func RandomInt(min, max int64) int64 {
+	//example for 6-digit RandomInt(100000,999999)
 	return min + getRand().Int63n(max-min+1) //0->max-min
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	db "github.com/punkzberryz/todo/db/sqlc"
 	"github.com/punkzberryz/todo/service/auth"
+	"github.com/punkzberryz/todo/service/mail"
 	"github.com/punkzberryz/todo/service/task"
 	"github.com/punkzberryz/todo/service/token"
 	"github.com/punkzberryz/todo/session"
@@ -20,6 +21,7 @@ type Server struct {
 	auth   auth.Auth
 	task   task.Task
 	token  token.Token
+	mail   mail.EmailSender
 }
 
 // Create new HTTP server and setup routing
@@ -41,12 +43,14 @@ func NewServer(config util.Config, store *db.Store, session *session.Store) (*Se
 	task := task.Task{
 		Store: *store,
 	}
+	mailSender := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
 
 	server := &Server{
 		config: config,
 		auth:   auth,
 		task:   task,
 		token:  token,
+		mail:   mailSender,
 	}
 
 	r := chi.NewRouter()
@@ -61,9 +65,11 @@ func NewServer(config util.Config, store *db.Store, session *session.Store) (*Se
 
 	//user-route
 	r.Route("/user", func(r chi.Router) {
-		r.Post("/", server.createUser)               //POST /user/
-		r.Post("/login", server.loginUser)           //POST /user/login
-		r.Post("/logout", server.removeTokenSession) //POST /user/logout
+		r.Post("/", server.createUser)                                 //POST /user/
+		r.Post("/login", server.loginUser)                             //POST /user/login
+		r.Post("/logout", server.removeTokenSession)                   //POST /user/logout
+		r.Post("/reset-password-request", server.resetPasswordRequest) //POST /user/reset-password-request
+		r.Post("/reset-password", server.resetPassword)                //POST /user/reset-password
 	})
 
 	//token

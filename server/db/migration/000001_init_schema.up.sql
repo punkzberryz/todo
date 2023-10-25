@@ -16,5 +16,6 @@ CREATE TABLE "tasks" (
 );
 
 CREATE INDEX ON "tasks" ("owner_id");
+CREATE INDEX ON "users" ("email");
 
 ALTER TABLE "tasks" ADD FOREIGN KEY ("owner_id") REFERENCES "users" ("id");

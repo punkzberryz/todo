@@ -52,9 +52,8 @@ sqlc:
 sqlc_windows:
 	docker run --rm -v ${PWD}:/src -w /src kjconroy/sqlc generate
 
-test:
-	cp .env app.env
-	go test -v -cover ./...
+test:	
+	go test -v -cover -short ./...
 
 server:		
 	cp .env app.env

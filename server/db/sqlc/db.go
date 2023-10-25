@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createPasswordResetSessionStmt, err = db.PrepareContext(ctx, createPasswordResetSession); err != nil {
+		return nil, fmt.Errorf("error preparing query CreatePasswordResetSession: %w", err)
+	}
 	if q.createSessionStmt, err = db.PrepareContext(ctx, createSession); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateSession: %w", err)
 	}
@@ -33,11 +36,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
 	}
+	if q.deletePasswordResetSessionStmt, err = db.PrepareContext(ctx, deletePasswordResetSession); err != nil {
+		return nil, fmt.Errorf("error preparing query DeletePasswordResetSession: %w", err)
+	}
 	if q.deleteSessionStmt, err = db.PrepareContext(ctx, deleteSession); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteSession: %w", err)
 	}
 	if q.deleteTaskStmt, err = db.PrepareContext(ctx, deleteTask); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteTask: %w", err)
+	}
+	if q.getPasswordResetSessionStmt, err = db.PrepareContext(ctx, getPasswordResetSession); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPasswordResetSession: %w", err)
 	}
 	if q.getSessionStmt, err = db.PrepareContext(ctx, getSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetSession: %w", err)
@@ -51,14 +60,25 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserStmt, err = db.PrepareContext(ctx, getUser); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUser: %w", err)
 	}
+	if q.updatePasswordResetSessionStmt, err = db.PrepareContext(ctx, updatePasswordResetSession); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdatePasswordResetSession: %w", err)
+	}
 	if q.updateTaskStmt, err = db.PrepareContext(ctx, updateTask); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateTask: %w", err)
+	}
+	if q.updateUserStmt, err = db.PrepareContext(ctx, updateUser); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateUser: %w", err)
 	}
 	return &q, nil
 }
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createPasswordResetSessionStmt != nil {
+		if cerr := q.createPasswordResetSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createPasswordResetSessionStmt: %w", cerr)
+		}
+	}
 	if q.createSessionStmt != nil {
 		if cerr := q.createSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createSessionStmt: %w", cerr)
@@ -74,6 +94,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
 		}
 	}
+	if q.deletePasswordResetSessionStmt != nil {
+		if cerr := q.deletePasswordResetSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deletePasswordResetSessionStmt: %w", cerr)
+		}
+	}
 	if q.deleteSessionStmt != nil {
 		if cerr := q.deleteSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteSessionStmt: %w", cerr)
@@ -82,6 +107,11 @@ func (q *Queries) Close() error {
 	if q.deleteTaskStmt != nil {
 		if cerr := q.deleteTaskStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteTaskStmt: %w", cerr)
+		}
+	}
+	if q.getPasswordResetSessionStmt != nil {
+		if cerr := q.getPasswordResetSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPasswordResetSessionStmt: %w", cerr)
 		}
 	}
 	if q.getSessionStmt != nil {
@@ -104,9 +134,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getUserStmt: %w", cerr)
 		}
 	}
+	if q.updatePasswordResetSessionStmt != nil {
+		if cerr := q.updatePasswordResetSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updatePasswordResetSessionStmt: %w", cerr)
+		}
+	}
 	if q.updateTaskStmt != nil {
 		if cerr := q.updateTaskStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateTaskStmt: %w", cerr)
+		}
+	}
+	if q.updateUserStmt != nil {
+		if cerr := q.updateUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateUserStmt: %w", cerr)
 		}
 	}
 	return err
@@ -146,33 +186,43 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                DBTX
-	tx                *sql.Tx
-	createSessionStmt *sql.Stmt
-	createTaskStmt    *sql.Stmt
-	createUserStmt    *sql.Stmt
-	deleteSessionStmt *sql.Stmt
-	deleteTaskStmt    *sql.Stmt
-	getSessionStmt    *sql.Stmt
-	getTaskStmt       *sql.Stmt
-	getTaskListStmt   *sql.Stmt
-	getUserStmt       *sql.Stmt
-	updateTaskStmt    *sql.Stmt
+	db                             DBTX
+	tx                             *sql.Tx
+	createPasswordResetSessionStmt *sql.Stmt
+	createSessionStmt              *sql.Stmt
+	createTaskStmt                 *sql.Stmt
+	createUserStmt                 *sql.Stmt
+	deletePasswordResetSessionStmt *sql.Stmt
+	deleteSessionStmt              *sql.Stmt
+	deleteTaskStmt                 *sql.Stmt
+	getPasswordResetSessionStmt    *sql.Stmt
+	getSessionStmt                 *sql.Stmt
+	getTaskStmt                    *sql.Stmt
+	getTaskListStmt                *sql.Stmt
+	getUserStmt                    *sql.Stmt
+	updatePasswordResetSessionStmt *sql.Stmt
+	updateTaskStmt                 *sql.Stmt
+	updateUserStmt                 *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                tx,
-		tx:                tx,
-		createSessionStmt: q.createSessionStmt,
-		createTaskStmt:    q.createTaskStmt,
-		createUserStmt:    q.createUserStmt,
-		deleteSessionStmt: q.deleteSessionStmt,
-		deleteTaskStmt:    q.deleteTaskStmt,
-		getSessionStmt:    q.getSessionStmt,
-		getTaskStmt:       q.getTaskStmt,
-		getTaskListStmt:   q.getTaskListStmt,
-		getUserStmt:       q.getUserStmt,
-		updateTaskStmt:    q.updateTaskStmt,
+		db:                             tx,
+		tx:                             tx,
+		createPasswordResetSessionStmt: q.createPasswordResetSessionStmt,
+		createSessionStmt:              q.createSessionStmt,
+		createTaskStmt:                 q.createTaskStmt,
+		createUserStmt:                 q.createUserStmt,
+		deletePasswordResetSessionStmt: q.deletePasswordResetSessionStmt,
+		deleteSessionStmt:              q.deleteSessionStmt,
+		deleteTaskStmt:                 q.deleteTaskStmt,
+		getPasswordResetSessionStmt:    q.getPasswordResetSessionStmt,
+		getSessionStmt:                 q.getSessionStmt,
+		getTaskStmt:                    q.getTaskStmt,
+		getTaskListStmt:                q.getTaskListStmt,
+		getUserStmt:                    q.getUserStmt,
+		updatePasswordResetSessionStmt: q.updatePasswordResetSessionStmt,
+		updateTaskStmt:                 q.updateTaskStmt,
+		updateUserStmt:                 q.updateUserStmt,
 	}
 }

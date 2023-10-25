@@ -10,6 +10,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type PasswordResetSession struct {
+	Email     string    `json:"email"`
+	Otp       string    `json:"otp"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 type Session struct {
 	ID           uuid.UUID `json:"id"`
 	UserID       int64     `json:"userId"`

@@ -60,3 +60,23 @@ func TestGetUser(t *testing.T) {
 	require.WithinDuration(t, user1.CreatedAt, user2.CreatedAt, time.Second)
 
 }
+
+func TestUpdateUser(t *testing.T) {
+	user1 := CreateRandomUser(t)
+	hashedPassword, err := util.HashPassword(util.RandomString(6))
+	require.NoError(t, err)
+	arg := UpdateUserParams{
+		Email:             user1.Email,
+		NewEmail:          util.RandomEmail(),
+		Username:          util.RandomString(13),
+		HashedPassword:    hashedPassword,
+		PasswordChangedAt: time.Now(),
+	}
+	user2, err := testQueries.UpdateUser(context.Background(), arg)
+	require.NoError(t, err)
+	require.NotEmpty(t, user2)
+	require.Equal(t, arg.Username, user2.Username)
+	require.Equal(t, arg.NewEmail, user2.Email)
+	require.Equal(t, arg.HashedPassword, user2.HashedPassword)
+	require.WithinDuration(t, arg.PasswordChangedAt, user2.PasswordChangedAt, time.Second)
+}

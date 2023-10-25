@@ -39,7 +39,7 @@ type CreateTokenParams struct {
 	ClientIp  string
 }
 
-func (t Token) CreateNewAccessToken(ctx context.Context, arg CreateTokenParams) (*NewTokenResponse, error) {
+func (t *Token) CreateNewAccessToken(ctx context.Context, arg CreateTokenParams) (*NewTokenResponse, error) {
 	accessToken, accessPayload, err := t.Maker.CreateToken(arg.User, t.AccessTokenDuration)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ type RenewAccessTokenResponse struct {
 	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
 }
 
-func (t Token) RenewAccessToken(ctx context.Context, refreshToken string) (*RenewAccessTokenResponse, error) {
+func (t *Token) RenewAccessToken(ctx context.Context, refreshToken string) (*RenewAccessTokenResponse, error) {
 	refreshPayload, err := t.Maker.VerifyToken(refreshToken)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (t Token) RenewAccessToken(ctx context.Context, refreshToken string) (*Rene
 }
 
 // Delete token session
-func (t Token) DeleteTokenSession(ctx context.Context, refreshToken string) error {
+func (t *Token) DeleteTokenSession(ctx context.Context, refreshToken string) error {
 	refreshPayload, err := t.Maker.VerifyToken(refreshToken)
 	if err != nil {
 		return err
