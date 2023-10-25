@@ -143,11 +143,17 @@ func (a *Auth) UpdateUserPassword(ctx context.Context, arg *UpdateUserPasswordPa
 	}
 
 	_, err = a.Store.UpdateUser(ctx, db.UpdateUserParams{
-		HashedPassword:    hashedPassword,
-		PasswordChangedAt: time.Now(),
+		HashedPassword:    sql.NullString{String: hashedPassword, Valid: true},
+		PasswordChangedAt: sql.NullTime{Time: time.Now(), Valid: true},
 		Email:             session.Email,
-		NewEmail:          session.Email,
 	})
-	//TODO: delete session after update sucess
+
+	//run go-routine to remove session
+	go func(store db.Store, email string) {
+		if err := store.DeletePasswordResetSession(context.Background(), email); err != nil {
+			log.Print("Error deleting password-session of ", email)
+			return
+		}
+	}(a.Store, session.Email)
 	return err
 }

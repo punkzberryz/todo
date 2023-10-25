@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -66,17 +67,26 @@ func TestUpdateUser(t *testing.T) {
 	hashedPassword, err := util.HashPassword(util.RandomString(6))
 	require.NoError(t, err)
 	arg := UpdateUserParams{
-		Email:             user1.Email,
-		NewEmail:          util.RandomEmail(),
-		Username:          util.RandomString(13),
-		HashedPassword:    hashedPassword,
-		PasswordChangedAt: time.Now(),
+		Email: user1.Email,
+		Username: sql.NullString{
+			String: util.RandomString(13),
+			Valid:  true,
+		},
+		HashedPassword: sql.NullString{
+			String: hashedPassword,
+			Valid:  true,
+		},
+		PasswordChangedAt: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		},
 	}
 	user2, err := testQueries.UpdateUser(context.Background(), arg)
 	require.NoError(t, err)
 	require.NotEmpty(t, user2)
-	require.Equal(t, arg.Username, user2.Username)
-	require.Equal(t, arg.NewEmail, user2.Email)
-	require.Equal(t, arg.HashedPassword, user2.HashedPassword)
-	require.WithinDuration(t, arg.PasswordChangedAt, user2.PasswordChangedAt, time.Second)
+	require.Equal(t, arg.Username.String, user2.Username)
+	require.Equal(t, user1.Email, user2.Email)
+	require.Equal(t, arg.HashedPassword.String, user2.HashedPassword)
+	require.NotEqual(t, user1.HashedPassword, user2.HashedPassword)
+	require.WithinDuration(t, arg.PasswordChangedAt.Time, user2.PasswordChangedAt, time.Second)
 }

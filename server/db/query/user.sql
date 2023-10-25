@@ -17,10 +17,10 @@ LIMIT 1;
 -- name: UpdateUser :one
 UPDATE users
 SET
-    email=sqlc.arg(new_email),
-    username=$3,
-    hashed_password=$4,
-    password_changed_at=$5
+    username = COALESCE(sqlc.narg(username), username),
+    hashed_password = COALESCE(sqlc.narg(hashed_password), hashed_password),
+    password_changed_at = COALESCE(sqlc.narg(password_changed_at), password_changed_at),
+    email= COALESCE(sqlc.narg(new_email), email)           
 WHERE id = $1 OR email = $2
 RETURNING *;
 
